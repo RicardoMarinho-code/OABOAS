@@ -7,7 +7,7 @@ type BottomBarItem = {
   icon: JSX.Element;
 };
 
-export type Tab = "Learn" | "Simulados" | "Profile" | "Leaderboards" | "Ranking" | "Perfil";
+export type Tab = "Learn" | "Simulados" | "Perfil" | "Ranking";
 
 export const useBottomBarItems = () => {
   const loggedIn = useBoundStore((x) => x.loggedIn);
@@ -91,7 +91,7 @@ export const useBottomBarItems = () => {
       ),
     },
     {
-      name: "Profile",
+      name: "Perfil",
       href: loggedIn ? "/profile" : "/learn?sign-up",
       icon: (
         <svg
@@ -142,7 +142,7 @@ export const useBottomBarItems = () => {
 
   if (loggedIn) {
     bottomBarItems.splice(1, 0, {
-      name: "Leaderboards",
+      name: "Ranking",
       href: "/leaderboard",
       icon: (
         <svg width="46" height="46" viewBox="0 0 46 46" fill="none">
