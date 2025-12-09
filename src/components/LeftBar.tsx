@@ -91,6 +91,22 @@ export const LeftBar = ({ selectedTab }: { selectedTab: Tab | null }) => {
         >
           {logoText}
         </Link>
+        
+        {loggedIn && (
+          <div className={`mb-4 ml-5 hidden rounded-lg p-3 text-white lg:block ${
+            userType === 'comunidade' 
+              ? 'bg-gradient-to-r from-blue-500 to-purple-600' 
+              : 'bg-gradient-to-r from-gray-500 to-gray-700'
+          }`}>
+            <div className="text-xs font-medium uppercase tracking-wide opacity-90">
+              {userType === 'comunidade' ? 'Plano Premium' : 'Plano Free'}
+            </div>
+            <div className="text-sm font-bold">
+              Bem-vindo{userType === 'comunidade' ? ' ao plano Premium!' : ' ao plano Free!'}
+            </div>
+          </div>
+        )}
+        
         <ul className="flex flex-col items-stretch gap-1">
           {bottomBarItems.map((item) => {
             const isActive = item.name === selectedTab;

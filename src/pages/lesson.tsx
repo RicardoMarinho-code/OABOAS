@@ -2,14 +2,21 @@ import type { NextPage } from "next";
 import Link from "next/link";
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { BigCloseSvg, CloseSvg, DoneSvg, LessonFastForwardEndFailSvg, LessonFastForwardEndPassSvg, LessonFastForwardStartSvg, LessonTopBarEmptyHeart, LessonTopBarHeart } from "~/components/Svgs";
+import { useBoundStore } from "~/hooks/useBoundStore";
+import { getQuestionFlowConfig } from "~/utils/questionFlowConfig";
+import { useRouter } from "next/router";
 
 interface FeedbackMessage {
   title: string;
   description: string;
   emoji?: string;
 }
-import { useBoundStore } from "~/hooks/useBoundStore";
-import { useRouter } from "next/router";
+
+type QuestionResult = {
+  question: string;
+  yourResponse: string;
+  correctResponse: string;
+};
 
 type OabAnswer = {
   readonly label: "A" | "B" | "C" | "D";
@@ -374,6 +381,8 @@ const formatTime = (timeMs: number): string => {
 
 const Lesson: NextPage = () => {
   const router = useRouter();
+  const loggedIn = useBoundStore((s) => s.loggedIn);
+  const userType = useBoundStore((s) => s.userType);
 
   const [lessonProblem, setLessonProblem] = useState(0);
   const [correctAnswerCount, setCorrectAnswerCount] = useState(0);
@@ -390,9 +399,20 @@ const Lesson: NextPage = () => {
   const [questionResults, setQuestionResults] = useState<QuestionResult[]>([]);
   const [reviewLessonShown, setReviewLessonShown] = useState(false);
 
-  const problem = mockQuestions[lessonProblem] ?? mockQuestions[0];
+  // Obter configuração baseada no tipo de usuário
+  const questionFlowConfig = useMemo(() => 
+    getQuestionFlowConfig(userType, loggedIn),
+    [userType, loggedIn]
+  );
 
-  const totalCorrectAnswersNeeded = 2;
+  // Filtrar questões baseado na configuração
+  const filteredQuestions = useMemo(() => {
+    return mockQuestions.slice(0, questionFlowConfig.questoesPorBloco);
+  }, [questionFlowConfig.questoesPorBloco]);
+
+  const problem = filteredQuestions[lessonProblem] ?? filteredQuestions[0];
+
+  const totalCorrectAnswersNeeded = questionFlowConfig.questoesPorBloco; // 100% das questões para passar
 
   const [isStartingLesson, setIsStartingLesson] = useState(true);
   const hearts =
@@ -434,7 +454,7 @@ const { correctAnswer } = problem;
     setSelectedAnswer(null);
     setSelectedAnswers([]);
     setCorrectAnswerShown(false);
-    setLessonProblem((x) => (x + 1) % mockQuestions.length);
+    setLessonProblem((x) => (x + 1) % filteredQuestions.length);
     endTime.current = Date.now();
   };
 
@@ -512,6 +532,7 @@ const { correctAnswer } = problem;
           onFinish={onFinish}
           onSkip={onSkip}
           hearts={hearts}
+          totalQuestions={questionFlowConfig.questoesPorBloco}
         />
       );
     }
@@ -760,7 +781,8 @@ const CheckAnswer = ({
   onFinish,
   onSkip,
   explanation = '',
-  problem
+  problem,
+  totalQuestions
 }: {
   isAnswerSelected: boolean;
   isAnswerCorrect: boolean;
@@ -771,6 +793,7 @@ const CheckAnswer = ({
   onSkip: () => void;
   explanation?: string;
   problem?: MultipleChoiceProblem;
+  totalQuestions: number;
 }): JSX.Element => {
   const [showConfetti, setShowConfetti] = useState(false);
   
@@ -819,7 +842,6 @@ const CheckAnswer = ({
     
   // Progress indicator based on correct/incorrect
   const progressIndicator = useMemo(() => {
-    const totalQuestions = mockQuestions.length;
     const correctAnswers = Math.floor(Math.random() * totalQuestions); // Replace with actual progress
     const progress = (correctAnswers / totalQuestions) * 100;
     
@@ -831,7 +853,7 @@ const CheckAnswer = ({
         ></div>
       </div>
     );
-  }, [isAnswerCorrect]);
+  }, [isAnswerCorrect, totalQuestions]);
 
   return (
     <>
@@ -951,6 +973,7 @@ const ProblemMultipleChoice = ({
   onFinish,
   onSkip,
   hearts,
+  totalQuestions
 }: {
   problem: MultipleChoiceProblem;
   correctAnswerCount: number;
@@ -965,6 +988,7 @@ const ProblemMultipleChoice = ({
   onFinish: () => void;
   onSkip: () => void;
   hearts: number | null;
+  totalQuestions: number;
 }) => {
   const { 
     id,
@@ -1054,6 +1078,7 @@ const ProblemMultipleChoice = ({
         onSkip={onSkip}
         explanation={correctAnswerShown ? problem.explanation : ''}
         problem={problem}
+        totalQuestions={totalQuestions}
       />
 
       <QuitMessage
@@ -1157,12 +1182,6 @@ const LessonComplete = ({
   );
 };
 
-type QuestionResult = {
-  question: string;
-  yourResponse: string;
-  correctResponse: string;
-};
-
 const ReviewLesson = ({
   reviewLessonShown,
   setReviewLessonShown,
@@ -1188,7 +1207,7 @@ const ReviewLesson = ({
         ].join(" ")}
         onClick={() => setReviewLessonShown(false)}
       ></div>
-      <div className="relative flex w-full max-w-4xl flex-col gap-5 rounded-2xl border-2 border-gray-200 bg-white p-8">
+      <div className="relative flex w-full max-w-5xl flex-col gap-5 rounded-2xl border-2 border-gray-200 bg-white p-6">
         <button
           className="absolute -right-5 -top-5 rounded-full border-2 border-gray-200 bg-gray-100 p-1 text-gray-400 hover:brightness-90"
           onClick={() => setReviewLessonShown(false)}
@@ -1196,64 +1215,58 @@ const ReviewLesson = ({
           <BigCloseSvg className="h-8 w-8" />
           <span className="sr-only">Close</span>
         </button>
-        <h2 className="text-center text-3xl">Check out your scorecard!</h2>
-        <p className="text-center text-xl text-gray-400">
-          Click the tiles below to reveal the solutions
+        <h2 className="text-center text-2xl">Gabarito das Questões</h2>
+        <p className="text-center text-lg text-gray-400">
+          Confira suas respostas
         </p>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className="max-h-96 overflow-y-auto space-y-3">
           {questionResults.map((questionResult, i) => {
+            const isCorrect = questionResult.yourResponse === questionResult.correctResponse;
             return (
-              <button
+              <div
                 key={i}
                 className={[
-                  "relative flex flex-col items-stretch gap-3 rounded-xl p-5 text-left",
-                  questionResult.yourResponse === questionResult.correctResponse
-                    ? "bg-correct-light text-correct-dark"
-                    : "bg-incorrect-light text-incorrect-dark",
+                  "flex items-center gap-3 rounded-lg p-3 text-sm border",
+                  isCorrect
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200",
                 ].join(" ")}
-                onClick={() =>
-                  setSelectedQuestionResult((selectedQuestionResult) =>
-                    selectedQuestionResult === questionResult
-                      ? null
-                      : questionResult,
-                  )
-                }
               >
-                <div className="flex justify-between gap-2">
-                  <h3 className="font-bold">{questionResult.question}</h3>
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white">
-                    {questionResult.yourResponse ===
-                    questionResult.correctResponse ? (
-                      <DoneSvg className="h-5 w-5" />
-                    ) : (
-                      <BigCloseSvg className="h-5 w-5" />
-                    )}
-                  </div>
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white">
+                  {isCorrect ? (
+                    <DoneSvg className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <BigCloseSvg className="h-4 w-4 text-red-600" />
+                  )}
                 </div>
-                <div>{questionResult.yourResponse}</div>
-                {selectedQuestionResult === questionResult && (
-                  <div className="absolute left-1 right-1 top-20 z-10 rounded-2xl border-2 border-gray-200 bg-white p-3 text-sm tracking-tighter">
-                    <div
-                      className="absolute -top-2 h-3 w-3 rotate-45 border-l-2 border-t-2 border-gray-200 bg-white"
-                      style={{ left: "calc(50% - 6px)" }}
-                    ></div>
-                    <div className="font-bold uppercase text-gray-400">
-                      Your response:
-                    </div>
-                    <div className="mb-3 text-gray-700">
-                      {questionResult.yourResponse}
-                    </div>
-                    <div className="font-bold uppercase text-gray-400">
-                      Correct response:
-                    </div>
-                    <div className="text-gray-700">
-                      {questionResult.correctResponse}
-                    </div>
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900">Questão {i + 1}</div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    <span className="font-medium">Sua resposta:</span> {questionResult.yourResponse}
                   </div>
-                )}
-              </button>
+                  {!isCorrect && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      <span className="font-medium">Resposta correta:</span> {questionResult.correctResponse}
+                    </div>
+                  )}
+                </div>
+              </div>
             );
           })}
+        </div>
+        <div className="flex justify-center gap-4 pt-4 border-t">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-600">
+              {questionResults.filter(q => q.yourResponse === q.correctResponse).length}
+            </div>
+            <div className="text-xs text-gray-500">Acertos</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-red-600">
+              {questionResults.filter(q => q.yourResponse !== q.correctResponse).length}
+            </div>
+            <div className="text-xs text-gray-500">Erros</div>
+          </div>
         </div>
       </div>
     </div>

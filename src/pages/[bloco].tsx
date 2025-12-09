@@ -6,6 +6,7 @@ import { RightBar } from "~/components/RightBar";
 import { TopBar } from "~/components/TopBar";
 import { bancoDeQuestoes, type Questao } from "~/data/bancoDeQuestoes";
 import { useBoundStore } from "~/hooks/useBoundStore";
+import { getQuestionFlowConfig } from "~/utils/questionFlowConfig";
 import { useMemo, useState } from "react";
 import { toast } from 'react-hot-toast';
 
@@ -48,12 +49,20 @@ const BlocoPage: NextPage = () => {
     [moduleNumber, blockNumber]
   );
 
+  const questionFlowConfig = useMemo(() => 
+    getQuestionFlowConfig(userType, loggedIn),
+    [userType, loggedIn]
+  );
+
   const questoesDoBloco = useMemo(() => {
-    if (loggedIn && userType === 'comunidade') {
-      return todasQuestoesDoBloco.slice(0, 11); // 5 + 6 questões
-    }
-    return todasQuestoesDoBloco.slice(0, 5); // Apenas 5 para não pagantes ou deslogados
-  }, [todasQuestoesDoBloco, loggedIn, userType]);
+    // Filtrar questões por tipo
+    const questoesFiltradas = todasQuestoesDoBloco.filter(questao => 
+      !questao.tipo || questao.tipo === questionFlowConfig.tipoQuestoes || questionFlowConfig.tipoQuestoes === 'basicas'
+    );
+    
+    // Limitar pela quantidade configurada
+    return questoesFiltradas.slice(0, questionFlowConfig.questoesPorBloco);
+  }, [todasQuestoesDoBloco, questionFlowConfig]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -69,7 +78,7 @@ const BlocoPage: NextPage = () => {
               Módulo {moduleNumber}
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              10 questões inspiradas no exame da OAB para praticar em qualquer lugar.
+              {questoesDoBloco.length} questões inspiradas no exame da OAB para praticar em qualquer lugar.
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <button

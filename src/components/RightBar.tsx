@@ -181,10 +181,26 @@ const LeaderboardRankSection = () => {
 
 const WeeklyGoalSection = () => {
   const questionsThisWeek = useBoundStore((x) => x.lessonsCompleted); // Usando lessonsCompleted como exemplo
-  const weeklyGoal = 11; // Meta de 11 questões por semana
+  const loggedIn = useBoundStore((x) => x.loggedIn);
+  const userType = useBoundStore((x) => x.userType);
+  
+  // Meta conforme plano: Free = 6, Premium = 11
+  const weeklyGoal = userType === 'comunidade' ? 11 : 6;
+  
   return (
     <article className="flex flex-col gap-5 rounded-2xl border-2 border-gray-200 p-6 font-bold text-gray-700">
-      <h2 className="text-xl">Meta da Semana</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl">Meta da Semana</h2>
+        {loggedIn && (
+          <div className={`rounded-full px-3 py-1 text-xs font-medium ${
+            userType === 'comunidade' 
+              ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white' 
+              : 'bg-gray-200 text-gray-700'
+          }`}>
+            {userType === 'comunidade' ? 'PREMIUM' : 'FREE'}
+          </div>
+        )}
+      </div>
       <div className="flex items-center gap-4">
         <LightningProgressSvg />
         <div className="flex flex-col gap-2">
